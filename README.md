@@ -1,4 +1,4 @@
-# Supplement on pet project with data mining skills and machine learning knowledge
+# Purpose of project
 The purpose of project is to make use of the public available information with data mining skills and predictive analysis tools in order to estimate the probability of win for each horse in a race.  The following is the procedures taken and different approach used after learning R or attempting new methodology.
 1.	Data Collection: Using Excel VBA to collect data from HKJC and newspaper web sites, including each race result, horse basic information, trackwork etc, approximately 8,000 races and 100,000 rows data
 2.	Data Cleaning: Using R to check whether the data set contains NA / missing / Inf and imputing mean / max / min / 0 or being removed as necessary
