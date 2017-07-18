@@ -1,8 +1,8 @@
 # Purpose of project
 
-The purpose of project is a stepping stone for myself to learn Machine Learning knowlege through a real - life case.  HKJC did a good job to maintain the data quality and transparency to public.
+The purpose of this project is a stepping stone for myself to learn Machine Learning through a real case as the data quality and transparency to public for Hong Kong horse racing is almost the best around the world.  I started collecting data in early 2016 and using traditional statistic method for predictive analysis and heard about machine learning at the time being.
 
-Make use of the public available information with data mining skills and predictive analysis tools in order to estimate the probability of win for each horse in a race.  The following is the procedures taken and different approach used after learning R or attempting new methodology.
+The following is the procedures taken and different approach used after learning R or attempting new methodology.
 
 # 1. Data
 1.	Data Collection: Using Excel VBA to collect data from HKJC and newspaper web sites, including each race result, horse basic information, trackwork etc, approximately 8,000 races and 100,000 rows data
