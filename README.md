@@ -2,9 +2,9 @@
 
 The purpose of this project is a stepping stone for myself to learn Machine Learning through a real life case.   The reason why choosing Hong Kong horse racing is HKJC maintains high quality of data and transparent to public access.  The project was started with excel VBA and SAS using traditional statistic method and move forward to SQL and R for using Machine Learning methods.
 The project here only demonstrated part of my work where:
-1.	Number of feature: reduced from 100+ to less than 10
-2.	Modelling method: Only 3 methods used here while more than 10 tested
-3.	Ensemble method: Only weighted stacking model used
+- Number of feature: reduced from 100+ to less than 10
+- Modelling method: Only 3 methods used here while more than 10 tested
+- Ensemble method: Only weighted stacking model used
 
 The following is the procedures taken and different approach was used.
 
