@@ -39,4 +39,5 @@ Comparing confusion matrix from different approaches together with the variable 
 # 10. Wagering strategy: 
 Applying Kelly’s Criterion in Excel VBA to find an optimal strategy for wagering
 
+# Result: 
 The fundamental model’s accuracy (without applying odds as factor) for predicting winner is slightly lower than public favorite (around 28% accuracy) but the average odds return is higher than the public’s estimation.  In all, the return turns out with a marginal profit.  There is potential to increase the accuracy by enhancing feature engineering and applying more sophisticated algorithm.  However, as too much noise and mankind uncertainty involved in race, it is expected that the accuracy may be lift up by only a few percent as the existing public estimate is fairly efficient.
