@@ -7,7 +7,8 @@ The project here only demonstrated part of my work where:
 3.	Ensemble method: Only weighted stacking model used
 
 The following is the procedures taken and different approach was used.
-#1.	Data Collection:
+
+# 1.Data Collection:
 Collect data from HKJC and newspaper web sites, including each race result, horse basic information, trackwork etc, approximately 8,000 races and 100,000 rows data (started with Excel VBA and now using R with web page xpath)
 #2.	Data Cleaning:
 Check whether the data set contains NA / missing / Inf and imputing mean / max / min / 0 or being removed as necessary (Started with Excel and now using R)
