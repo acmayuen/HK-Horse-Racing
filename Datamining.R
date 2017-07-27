@@ -6,7 +6,6 @@ library(dplyr)
 library(zoo)
 library(ggplot2)
 library(corrplot)
-setwd("/home/andrew/Documents")
 
 ##########Load Functions
 #Lag Function for previous race
