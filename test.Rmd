@@ -1,0 +1,431 @@
+---
+title: "必勝賽馬方程式? 機器學習的預測分析應用"
+author: "Andrew"
+date: "July 28, 2017"
+output: html_document
+---
+
+<style type="text/css">
+body, td {font-size: 20px;}
+code.r{font-size: 14px;}
+pre {font-size: 18px}
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+香港賽馬一直有人研究利用統計學計算賽馬勝出機會，其中的的Multinomial Logistic Regression(MLR)加上Kelly Criterion更是其中的佼佼者，近年又因傳媒報導職業賭徒對薄公堂令「賭馬方程式」的討論又變得熾熱。回想N年前讀大學時上統計和精算堂，當時一直都不太清楚書中的例子是否真的可以在現實生活中應用，直到某天撞破(?!)兩個教授在辦公室裡研究用統計模型賭NBA才知道原來讀書是很有用的。最近開始多人認識的機器學習跟統計學原本就是一家人，只是機器學習著重利用演算法找出答案，所以就想到寫這篇文章介紹用機器學習方法預測賽馬結果的「方程式」。
+
+
+### 1. 背景
+
+賽馬運動在香港的歷史悠久，相信一般市民都不會陌生，回想當年中英雙方就香港回歸問題談判時，中國國家領導人都要強調97後可以「馬照跑」，可見賽馬在市民日常生活的重要性。  
+    
+要說「賭馬方程式」，過去廿多年香港馬場出現過不少職業賭徒，其中最為老一輩馬迷熟悉的當然是被封為一代「馬神」的Robert Moore，他算是最早期在香港使用電腦分析賽馬數據的職業賭徒，曾經因贏錢太多而被馬會凍結戶口，最後為情自殺，傳奇一生既為人津津樂道亦為之惋惜。另外一位是William Benter，退出賭馬集團後把使用的分析方法寫成論文並在香港一個數學協會年度會議上發表簡報。較近期的有中大顧教授，他涉嫌擅自使用投資者出資開發的模型於3個馬季賺取超過5千萬港元而被告上法庭，報章大肆報導後成馬場內外的一時佳話。還有一位叫cxwong的職業賭徒於2005年寫過一本書名為「計得精彩」，書中介紹了大量賽馬數據分析方法和傳統統計預測模型，令不少香港馬迷有機會初窺數據賽馬。  
+  
+以上介紹的只是在香港比較有名的職業賭徒，其實還有很多外國學者研究這種競賽預測模型(Competitive Event Model)如賽狗、賽艇、籃球、棒球、足球、網球等，有興趣可以網上搜尋相關的學術論文。香港賽馬是其中一個較多人研究的項目，主要原因如下:  
+
+  
+* 馬匹及賽事資料齊全，賽事相對較公平
+* 彩池金額大，每個馬季投注總額超過1000億港元
+* 馬迷知識水平和分析能力相對較低(不想認同，但與日本、澳洲、英國、美國相比這是事實)
+* 香港資本市場發達，資金流通性高
+  
+壞處是如下:
+
+* 馬會抽水較深，一般單場彩池抽稅為5%，而過關及特別彩池超過20%
+* 採用浮動賠率 (pari-mutuel)，賠率於開跑前1分鐘的波幅可達50%
+  
+故此要在香港賽馬贏錢不容易，很多學者以香港賽馬作研究後都轉到其他相關或延伸研究。
+  
+
+### 2. 提取數據  
+  
+這裡用的數據都是從香港賽馬會或傳媒的網站上截取，要在那裡找資料和找什麼資料視乎想需要，基本的資料如馬匹名稱、年齡、完成時間、體重等可以到馬會網站，如需要一些特別資料，例如走位分析、晨操評分、賠率走勢、過關飛等，可以到一些收費網站買資料。如只需要最基本的資料，當然可以手動copy/paste，不過幾千條資料慢慢貼在excel效率很低，在此介紹一個用excel VBA找資料的簡單方法 (亦可使用xpath + python / R / java):  
+
+* 選一個合適的網頁，網址要有日期 / 地點 / 場次等，例如www.abc.com/index.php?date=19970701&page=01 後面date就是日期1997年7月1日
+* 打開一個空白的Excel，開啟“檢視” => “巨集”中的“錄制巨集”，此功能是可以把你在excel上的動作都錄起以便重播
+* 選“資料” => “從web”，貼上網址於地址欄，選擇需要的部分並按“匯入”
+* 資料會貼在目前的excel頁上，跟網站上的資料作對比確認無誤
+* 停止錄制巨集並打開程式碼，找出剛錄好的巨集程式碼
+* 修改程式碼，加入迴圈功能(loop)  (for loop 、while loop等) 重複剛才的程序，以日期 / 場次等做變數  
+不直接分享檔案，太多人用可能令網址格式被修改，請見諒。
+  
+### 3. 整合數據  
+  
+完成截取數據後要先檢查一下檔案，看看已收集的資料是否已齊全，格式是否一致，再考慮怎樣做整理工作。最簡單的數據排列方式是每一行代表一匹馬在某一場比賽的出賽紀錄，每一列代表該馬匹在該場比賽的某一項數據，整理資料工作如下:  
+
+* 刪除每個場次之間的空行
+* 刪除重複的場次標題
+* 場次資料要分解到每匹馬，如該場途程、跑道、地點、場地狀況等
+* 分隔於同一格內的數據 / 字詞，如走位、分段時間
+* 把總時間轉為秒方便計算
+  
+以上的工作如果人手整理的話會花很多時間，尤其是第一次收集資料時可能面對幾百場幾千行的數據，所以用VBA做比較有效率。另外可以把截取和整理功能寫在同一個VBA裡，再以windows scheduler推動 .bat檔自動開Excel跑code，定期截取新資料，再配合SQL便可以有一套資料庫。
+  
+由於時間關係我已把2008年–2009年賽季的樣本資料放到github下載，如果要最新的資料就再說吧。  
+<https://github.com/acmayuen/HK-Horse-Racing/blob/master/Database%202008-2009.xlsx>
+  
+  
+### 4. 特徵工程 (Feature Engineering): 
+    
+根據國內外數據科學家的經驗，數據挖掘(就是剛才提取、整合、檢查、特徵工程步驟)在機器學習的過程裡佔80%以上的人手操作時間，主要是因為現代數據的複雜性，很多時候大量的資料以非結構形式存在，例如照片機器學習需要用到上千個特徵;亦要先了解清楚數據的本質和特性，考慮數據對分析主題是否有幫助，以找出能解釋問題的特徵，增加預測的準確度。  
+  
+在馬會和報紙網站上找到的一般都是基本資料(或可稱為原始數據)，大約可分為4類:
+  
+* 賽事資料: 場次、日期、地點、跑道、途程、場地狀況、班次
+* 馬匹資料: 馬名、馬齡、體重、評分、練馬師
+* 馬匹賽況: 馬號、騎師、負磅、檔位、獨贏賠率
+* 比賽結果: 走位、名次、分段時間、總時間、勝負距離
+  
+在模型中當然可以只用以上的資料，但對賽事結果的預測準確度肯定不足，如果有看馬經或馬報的朋友都知道，其實還有很多資料可以使用，例如上季成績、同程成績、騎師配搭成績等，這些資料都可以用原始數據計算出來，這就是所謂特徵工程。這裡只是簡單介紹所以只拿幾個特徵做例子，我用的模型大概有幾十個自己計算的特徵，例如根據外國賽馬研究專家Andrew Beyer提出的speed rating、馬匹跑法、段速分析等，有興趣的朋友自己再鑽研吧。 
+  
+這裡我用的是一款完全免費的軟件R，可以安裝很多套件，還有不同論壇支援，比那些超貴的SXXX、SXX好得多，是現時其中一款最受數據科學家歡迎的軟件(另外一款是Python)。  
+由於R是一個類似windows命令模式(command mode)的軟件，使用上不太方便，一般都會配搭RStudio(IDE軟件)，安裝及使用方法可到官方網站找。   
+<https://www.r-project.org/> <https://www.rstudio.com/>  
+
+以下是在Rstudio裡運行的部分程式碼和結果，詳細的程式碼請到我github找。  
+<https://github.com/acmayuen/HK-Horse-Racing/blob/master/HorseraceExample.R>  
+  
+```{r, warning=FALSE, include=FALSE}
+##########Call Libreary
+library(readxl)
+library(data.table)
+library(plyr)
+library(dplyr)
+library(zoo)
+library(ggplot2)
+library(corrplot)
+library(survival)
+require(xgboost)
+library(ranger)
+library(e1071)
+```
+
+```{r warning = FALSE, include=FALSE}
+#Lag Function for previous race
+lg <- function(x,y)c(y, x[1:(length(x)-1)])
+#Calculating Moving Average
+get.mav <- function(bp,n){require(zoo)
+  rollapply(bp, width=n,mean,align="right",partial=TRUE,na.rm=TRUE)}
+```
+
+```{r warning = FALSE}
+##########Loading Data
+data<-data.table(read_excel("Database 2008-2009.xlsx"))
+df<-data
+df<-df[with(df, order(Run)), ]
+##########Class calibration
+#Original: Elite / International - 7, New Horse - 6, Class 1 - 5
+#Calibrated: Elite / Inter => 1, Class 1-5 => 2 - 6, New Horse => 7
+df$Class.Cal<-ifelse(df$Class==7,1,ifelse(df$Class==1,2,ifelse(df$Class==2,3,ifelse(df$Class==3,4,ifelse(df$Class==4,5,ifelse(df$Class==5,6,ifelse(df$Class==6,7,NA)))))))
+##########Upgrade or Downgrade of Class
+df<-df[,LagClass := lg(Class.Cal,NA), by = c("Name")]
+df$L1Class<-ifelse(is.na(df$LagClass),0,df$Class.Cal-df$LagClass)
+##########Finishing Position from last race
+df<-df[,L1FinPos := lg(FinPos,NA), by = c("Name")]
+Avg.FP<-mean(df$L1FinPos,na.rm=T)
+df<-df[,AVG4FinPos:=as.numeric(na.fill(get.mav(L1FinPos,4),Avg.FP)),by=c("Name")]
+##########Difference from previous rating
+df<-df[,L1Rating := ifelse(lg(Rating,0)==0|Rating==0,0,Rating-lg(Rating,0)), by = c("Name")]
+##########Difference from previous horse weight
+df<-df[,L1HrWt := ifelse(is.na(HrWt-lg(HrWt,NA)),0,HrWt-lg(HrWt,NA)), by = c("Name")]
+##########Day difference from previous race
+df$date1<-as.Date(df$Date,origin = "1899-12-30")
+df<-df[,date2:=lg(date1,NA),by=c("Name")]
+df$date3<-na.fill(as.numeric(df$date1-df$date2),365)
+df$LastRun<-ifelse(df$date3>365,365,df$date3)
+##########Transform Finishing Position to Binary result
+df<-df[,FO:=ifelse(FinPos==1,1,0)]
+```
+  
+
+### 5. 檢查數據 (Data Cleaning)  
+  
+做好特徵工程後抽取需要使用的特徵，這例子使用的特徵意義如下:  
+
+* Run: 場次ID，由年/月/日/場次
+* Date: 賽事日期
+* HrNO: 比賽馬匹編號
+* Age: 馬齡
+* HrWt: 馬匹體重
+* WtCr: 負磅
+* L1Class: 上場與今場班次改變
+* AVG4FinPos: 過去四場平均完成名次
+* L1Rating: 上場與今場評分改變
+* L1HrWt: 上場與今場體重改變
+* LastRun: 上場與今場相距日數
+* FO: 是否勝出賽事，1是勝出，0是落敗
+* FinPos: 完成名次
+* FinOdd: 最終賠率
+  
+提取資料後對數據做些分析，看數據有沒有問題:  
+
+* 分布情況: 數量 / 平均值(mean) / 標準差(standard deviation) / 異常數值(outlier)
+  i) 首先把有異常數值的資料拿走，可以是一場中其中一隻馬匹的資料，亦可以是刪去整場資料  
+  ii) 再看有沒有特徵的標準差太小  
+  
+* 數據檢查: 缺失值(NA) / 無限值(Inf) / 錯誤值(Typo)  
+
+* 數據處理:    
+
+ i) 標準化: 利用每個因子的平均值和標準差把不同數值單位的因子標準化以加快建模速度  
+ 
+ ii) 罝入數據: 以平均值 / 中位數 / 常數 / 0值替代缺失值 / 無限值 / 錯誤值等  
+
+```{r, echo=FALSE}
+##########Variable to pick and subset data
+var<-c("Run","Date","HrNO","Age","HrWt","WtCr","L1Class","AVG4FinPos","L1Rating",
+       "L1HrWt","LastRun","FO","FinPos","FinOdd")
+data.pick<-select(df,one_of(var))
+##########Convert feature to factor
+data.pick$HrNO<-as.factor(data.pick$HrNO)
+##########Summary of data
+summary(data.pick[,4:7])
+##########Checking NA value in data set
+na.num<-sum(is.na(data.pick))
+print(paste0("Number of Not Available items in data set: ",na.num))
+##########Data Visualization with Boxplot for variables
+par(mfrow=c(1,4))#set margin
+boxplot(data.pick$Age,col="red")
+boxplot(data.pick$HrWt,col="blue")
+hist(data.pick$LastRun,col="yellow")
+hist(data.pick$L1Class,col="green")
+```
+  
+各特徵相關係數圖  
+```{r echo=FALSE}
+##########Correlation Plot
+par(mfrow=c(1,1))
+correlations <- cor(data.pick[,4:14])# calculate correlations
+corrplot(correlations, method="circle")# create correlation plot
+```
+  
+經過以上這麼多的步驟，用來建立模型的數據已準備得差不多。  
+  
+
+### 6. 劃分資料 (Data Splitting)  
+  
+開始正式建立模型前需要把整套資料分割成兩份(亦可分成三份，視乎建模過程需要)，一份是用作訓練模型，另一份是訓練後測試準確度用的，因為使用同一份資料作為訓練和測試準確度的誤差會很大。劃分方法有很多種，可根據資料本身的結構考慮，在這個例子中以同一場次作為單位抽取資料會較合理，這裡只是根據日期劃分成兩份。
+  
+```{r }
+train<-data.pick[data.pick$Date<="2009-12-31", ]
+test<-data.pick[data.pick$Date>"2009-12-31", ]
+```
+
+```{r, include=FALSE}
+train.cl<-train
+test.cl<-test
+train.xgb<-train
+test.xgb<-test
+train.rf<-train
+test.rf<-test
+train.svm<-train
+test.svm<-test
+```
+
+### 7. 建立模型  
+  
+這篇應用是希望通過馬匹和賽事的特徵來預測比賽結果，即馬匹完成比賽的名次，屬於機器學習中監督式學習，可以選擇使用迴歸模型(Regression Model)或分類模型(Classification Model):  
+  
+* 迴歸模型: 預測結果 - FinPos 1-14; 支持向量機(迴歸模式)  
+* 分類模型: 預測結果 - FO 0 / 1; 條件邏輯迴歸、XGBoost、隨機森林  
+  
+以下簡單介紹每個建模方法:  
+
+  i) 條件式邏輯迴歸模型(Conditional Logistic Regression)  
+開始建模先用統計學的模型熱一下身，相信如在大學曾經修讀入門統計學的朋友都知道邏輯迴歸分析(logistic regression)是什麼，這個方法好處是模型結構和結果很容易了解，比較特別的地方是"Conditional"，這裡建的模型中有一個叫strata的命令執行於Run(場次ID)之上，意思就是告訴模型同一個Run都是同一組別的數據，可以令預測更準確(這適合在競賽事件預測中使用)。這個模型本身沒有參數要調整，只會根據MLE(maximum liklihood estimation)計算出最佳的模型，亦可使用有學習參數的進化版本Lasso / L1 Penalty等。
+  
+```{r }
+##########Using Conditional Logistic Regression##########
+##########Modelling Conditional Logistic Regression
+fit<-clogit(FO~Age+HrWt+WtCr+L1Class+AVG4FinPos+L1Rating+L1HrWt+LastRun
++strata(Run),train.cl)
+##########Form a data matrix for prediction
+m<-model.matrix(~Age+HrWt+WtCr+L1Class+AVG4FinPos+L1Rating+L1HrWt+LastRun
+-1, data=test.cl)
+##########Coeficient times data matrix and predicted probability
+pp<-exp(m %*% coef(fit))
+pps<-ave(pp, test.cl$Run, FUN=sum)
+pred.cl<-pp/pps
+```
+
+ ii) xgboost模型  
+XGBoost結合了Gradient Boosting 的优秀性能，实现超高運行效率和準確度。  
+XGBoost於3年前由Tianqi Chen於Kaggle的Higgs Boson Challenge上使用並獲得優異成績，其後作者把方法公開並建立了一個Python模組原型，之後在其他平台建立模組，現時很多數據科學家都在 Kaggle比賽上使用，甚至很多比赛获奖者都有把XGBoost 作为其中一個基礎模型或疊加模型做集成學習。  
+  
+```{r }
+##########Using Extreme Gradient Bossting##########
+##########Transform data frame to matrix
+mtrain.xgb<-data.matrix(train.xgb[,-c(1:3,12,13,14)])
+mtest.xgb<-data.matrix(test.xgb[,-c(1:3,12,13,14)])
+##########Take out final odds
+trainodd.xgb<-data.matrix(train.xgb[,14])
+testodd.xgb<-data.matrix(test.xgb[,14])
+##########Vectorized output
+output_vector1 = train.xgb[,"FO"]==1
+output_vector2 = test.xgb[,"FO"]==1
+##########Extreme gradient boosting training
+bst<-xgboost(
+data = mtrain.xgb, label = output_vector1,nround = 1,objective="binary:logistic")
+##########Predict probability
+pred.xgb<-predict(bst,mtest.xgb)
+##########Variable Importance
+name.xgb<-colnames(mtrain.xgb)
+importance.xgb<- xgb.importance(feature_names = name.xgb, model = bst)
+```
+  
+XGBoost特徵重要性  
+```{r }
+head(importance.xgb,10)
+xgb.plot.importance(importance_matrix = importance.xgb)
+```
+  
+XGBoost樹狀圖  
+  
+```{r}
+xgb.plot.tree(model=bst, trees=0:1, render=T)
+```
+  
+  
+ iii) 隨機森林模型(Random Forest)  
+隨機森林是一個包含多個決策樹(Decision Tree)的分類器，輸出的類別由個別樹輸出的類別的眾數而定，並加入隨機分配的訓練資料，以大幅增進最終的運算結果。簡單說就是N個決策樹用集成學習投票得出結果。模型好處是可以評估特徵的重要性和當作非監督式聚類使用。  
+  
+```{r }
+##########Using Random Forest##########
+##########Transform data frame to matrix
+dtrain.rf<-train.rf[,-c(1:3,13,14)]
+dtest.rf<-test.rf[,-c(1:3,13,14)]
+dtrain.rf$FO<-as.factor(dtrain.rf$FO)
+dtest.rf$FO<-as.factor(dtest.rf$FO)
+trainodd.rf<-train.rf[,14]
+testodd.rf<-test.rf[,14]
+##########Building Random Forrest with Ranger library
+pbrf.model<-ranger(FO~.,dtrain.rf,probability = TRUE,num.trees = 10,mtry = 5,write.forest = TRUE,min.node.size = 3,importance="impurity")
+##########Prediction
+pred.rf<-predict(pbrf.model, dat=dtest.rf)
+```
+  
+  
+特徵重要性
+```{r, echo=FALSE}
+##########Variable Importance
+plot(pbrf.model$variable.importance)
+```
+
+iv) 使用支持向量機模型(Support Vector Machine, 簡稱SVM)  
+屬於監督學習模型，可用於分類或回歸分析。除了進行線性分類，支持向量機可以使用所謂的核技巧，它們的輸入隱含映射成高維特征空間中有效地進行非線性分類。這裡用了回歸分析(Support Vector Regressor)，出來的結果是預計完成名次。  
+  
+```{r }
+##########Using Support Vector Machine##########
+#library("Rgtsvm", lib.loc="~/R/x86_64-pc-linux-gnu-library/3.3") #Use this instead of e1071 if you are using linux with GPU for 10 times faster training
+##########Transform data frame to matrix
+dtrain.svm<-train.svm[,-c(1:3,12,14)]
+dtest.svm<-test.svm[,-c(1:3,12,14)]
+dtrainx.svm<-train.svm[,-c(1:3,12,13,14)]
+dtrainy.svm<-train.svm[,c(13)]
+dtestx.svm<-test.svm[,-c(1:3,12,13,14)]
+dtesty.svm<-test.svm[,c(13)]
+##########Run Support Vector Machine
+svm.model<-svm(FinPos~.,data=dtrain.svm,type = "eps-regression",probaility=T)
+pred.svm<-predict(svm.model,dtestx.svm)
+```
+  
+### 8. 預測準確度  
+建立好模型後就要檢查一下準確度，由於賽馬不確定及人為因素極多，理論上要100%準確預測賽馬結果是不可能(除非全部比賽都是造馬)，但跟股票一樣，是否「跑嬴大市」成為其中一個考慮模是否一個好模型，利用大熱門的賠率作為指標，看與公眾預測最大機會羸出比賽的馬匹次數比較。另外以回報率作比較亦是比較合理，因為投注賽馬是想嬴錢，買中次數多不代表會嬴錢。  
+  
+* 計算準確度: 在測試組數據裡，模型預測最大機會勝出及實際勝出的馬匹次數除以場數  
+* 計算回報率: 在測試組數據裡，模型預測最大機會勝出及實際勝出的馬匹乘以最終賠率加總再除以場數(即是以投注金額單位為$1注計算)  
+
+  以最熱門賠率為例，如果每場都跟大熱賠率買獨嬴，454場賽事合計中124場(27.5%機會率)，而回報率只有-24.7%，即總投注454拿回341。 
+  
+  
+```{r, echo=FALSE}
+result.overall<-as.data.frame(cbind(test,pred.cl,pred.xgb,pred.rf$predictions,pred.svm))
+colnames(result.overall)[colnames(result.overall)=="V1"] <- "pred.cl"
+colnames(result.overall)[colnames(result.overall)=="1"] <- "pred.rf"
+result.overall$`0`<-NULL
+result.overall<-ddply(result.overall,.(Run),transform,rankO=rank(FinOdd,ties.method="min"))
+result.overall<-ddply(result.overall,.(Run),transform,rank.cl=rank(-pred.cl,ties.method="min"))
+result.overall<-ddply(result.overall,.(Run),transform,rank.xgb=rank(-pred.xgb,ties.method="min"))
+result.overall<-ddply(result.overall,.(Run),transform,rank.rf=rank(-pred.rf,ties.method="min"))
+result.overall<-ddply(result.overall,.(Run),transform,rank.svm=rank(pred.svm,ties.method="min"))
+
+print(paste0("Favor Odds: Accuracy ", sum(ifelse(result.overall$FO==1&result.overall$rankO==1,1,0))/sum(result.overall$FO==1)
+,"; Return ",
+sum(ifelse(result.overall$FO==1&result.overall$rankO==1,1,0)*result.overall$FinOdd)/sum(result.overall$FO==1)-1
+))
+
+print(paste0("CLogistic Regression: Accuracy ",
+sum(ifelse(result.overall$FO==1&result.overall$rank.cl==1,1,0))/sum(result.overall$FO==1)
+,"; Return ",
+sum(ifelse(result.overall$FO==1&result.overall$rank.cl==1,1,0)*result.overall$FinOdd)/sum(result.overall$FO==1)-1
+))
+
+print(paste0("Xgboost: Accuracy ",
+sum(ifelse(result.overall$FO==1&result.overall$rank.xgb==1,1,0))/sum(result.overall$FO==1)
+,"; Return ",
+sum(ifelse(result.overall$FO==1&result.overall$rank.xgb==1,1,0)*result.overall$FinOdd)/sum(result.overall$FO==1)-1
+))
+
+print(paste0("Random Forest: Accuracy ",
+sum(ifelse(result.overall$FO==1&result.overall$rank.rf==1,1,0))/sum(result.overall$FO==1)
+,"; Return ",
+sum(ifelse(result.overall$FO==1&result.overall$rank.rf==1,1,0)*result.overall$FinOdd)/sum(result.overall$FO==1)-1
+))
+
+print(paste0("Support Vector Machine: Accuracy ",
+sum(ifelse(result.overall$FO==1&result.overall$rank.svm==1,1,0))/sum(result.overall$FO==1)
+,"; Return ",
+sum(ifelse(result.overall$FO==1&result.overall$rank.svm==1,1,0)*result.overall$FinOdd)/sum(result.overall$FO==1)-1
+))
+
+print(paste0("Total number of run: ",sum(result.overall$FO==1)))
+```
+  
+
+### 9. 集成學習(Ensemble Learning)  
+集成學習是一種由多個基礎模型組合而成的分類方法(或可以想像成一個投票制度)，權重產生一個"投票決定"的整體分析結果。整體分類器最後決定的結果等於是結合整體假設中每一個別假設的結果與個別的權重。集成學習是否有效取決於基礎模型之间的相关性要尽可能的小和性能表现(準確度)不能差距太大。  
+  
+```{r echo=FALSE, out.width='100%'}
+knitr::include_graphics('./blog-diagram-stacking.jpg')
+```
+
+```{r }
+##########Stacking Result from 4 models
+test.stack<-cbind(test.svm,pred.cl,pred.svm,pred.xgb,pred.rf$predictions[,2])
+##########Data conversion
+dstackx<-data.matrix(test.stack[,c(15:18)])
+dstacky<-test.stack[,c(12)]==1
+##########Stacking model using XGBoost
+bst.stack<-xgboost(data = dstackx, label = dstacky,nround = 5,objective ="binary:logistic",max.depth = 5,eta = 0.8, nthread = 8, gamma=1)
+pred.bst.stack<-predict(bst.stack,dstackx)
+```
+
+### 10. 總結  
+經過以上這麼多處理數據步驟、建立模型工作和一大堆結果，要明白箇中道理相信不是一朝一夕的事，而要用以上模型的概念做實際操作需要花很多功夫，如果有興趣研究可以從以下地方著手:
+i) 除了用近期和更多的資料，可加入睇帶人員的評分、練馬師習慣等小眾資料看是否能提升準確度  
+ii) 在特徵工程中加入更多特徵，於模型中選用更多特徵  
+iii) 以上的模型都沒有做參數調整，其實這個是機器學習中非常重要的一步，但又很難一言以蔽之，因為每個模型都有不同參數、不同特徵，又要考慮特徵多寡和運行速度，調太多會過度擬合(overfitting)，所以tuning是有點art & science 的感覺。  
+iv) 從編寫程式的角度而言，用linux/MacOS比windows好，因為很多套件都是在linux環境下寫，開發人員有時不會做windows版本，這個我在找支援windows的GPU計算套件時感受很深。  
+v) 如果要運行的模型有大量數據需要處理，如幾十萬行和幾百個特徵，那用GPU做matrix multiplication可以加快幾倍以上的速度，當然，這就要買一塊或幾塊較好的video card。(2016年底我的i7超頻K版加32Gb ram在windows下的R行e1071的Support Vector與linux下加入GTX1060OC 6Gb 的SVM速度相差幾十倍...)  
+vi) 投注的方法未介紹，不過來來去去都是Kelly Criterion啦  
+  
+最後，歡迎高手和愛好者交流指點。  
+
+### 11. 參考資料  
+i) William Benter, Computer Based Horse Race Handicapping Systems  
+ii) William Benter, Advances in the Mathematical Modelling of Horse Race Outcomes
+iii) Edna M. White & Ronald Dattero, Combining Vector Forecasts to Predict thoroughtbread Horse race outcomes  
+iv) Ruth N. Bolton & Randall G. Chapman, Searching for Positive Returns at the Track: A Multinomial Logit Model for Handicapping Horse Races
+v) Stefan Lessmann & Ming-Chien Sung, Identifying winners of competitive events: A SVM-based classification model for horserace prediction
+vi) Tom Ainslie, Ainslie's Complete Guide to Thoroughbred Racing
+vii) Andrew Beyer, Beyer on Speed
+viii) Gareth James & Others, An Introduction to Statistical Learning
+ix) Karthik Ramasubramanian and Abhishek Singh, Machine Learning Using R  
+x) Luis Torgo, Data Mining with R
+xi) Nina Zumel & John Mount, Practical Data Science with R
+xii) CX Wong - 計得精彩  
+xiii) Court Case - Bruce James Stinson v Gu Ming Gao
+
