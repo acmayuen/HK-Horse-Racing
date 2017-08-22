@@ -1,4 +1,5 @@
 # Purpose of project
+(for detail explanation, please visit my web site www.mlact.com in chinese only)
 
 The purpose of this project is a stepping stone for myself to learn Machine Learning through a real life case.   The reason why choosing Hong Kong horse racing is HKJC maintains high quality of data and transparent to public access.  The project was started with excel VBA and SAS using traditional statistic method and move forward to SQL and R for using Machine Learning methods.
 The project here only demonstrated part of my work where:
